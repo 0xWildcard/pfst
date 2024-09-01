@@ -129,7 +129,7 @@ function App() {
         pollTransactions();
         const intervalId = setInterval(pollTransactions, POLLING_INTERVAL_MS);
         return () => clearInterval(intervalId);
-    }, [lastFetchedSignature]);
+    }, [lastFetchedSignature, pollTransactions]); // Added pollTransactions to the dependency array
 
     return (
         <div className="App">
