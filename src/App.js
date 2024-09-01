@@ -81,6 +81,40 @@ function App() {
         }
     };
 
+    useEffect(() => {
+        const pollTransactions = async () => {
+            const signatures = await fetchSignatures();
+
+            if (!signatures.length) return;
+
+            const newTransactions = [];
+
+            for (const signature of signatures) {
+                if (signature === lastFetchedSignature) break;
+
+                const result = await fetchTransaction(signature);
+
+                if (result && isTargetedTransaction(result.transaction)) {
+                    console.log(`Transaction ${result.transaction.transaction.signatures[0]} matches the criteria`);
+                    console.log(`Token Address: ${result.tokenAddress}`);
+                    console.log(`Liquidity Pair Address: ${result.liquidityPairAddress}`);
+
+                    newTransactions.push(result);
+                }
+            }
+
+            if (newTransactions.length > 0) {
+                setTargetedTransactions([...newTransactions, ...targetedTransactions]);
+                setLastFetchedSignature(newTransactions[0].transaction.transaction.signatures[0]);
+                setLoading(false);
+            }
+        };
+
+        pollTransactions();
+        const intervalId = setInterval(pollTransactions, POLLING_INTERVAL_MS);
+        return () => clearInterval(intervalId);
+    }, [lastFetchedSignature]);
+
     const isTargetedTransaction = (transaction) => {
         if (!transaction || !transaction.transaction || !transaction.transaction.message) return false;
 
@@ -96,40 +130,6 @@ function App() {
 
         return matchesTargetData && matchingAccountStructure && significantBalanceChange;
     };
-
-    const pollTransactions = async () => {
-        const signatures = await fetchSignatures();
-
-        if (!signatures.length) return;
-
-        const newTransactions = [];
-
-        for (const signature of signatures) {
-            if (signature === lastFetchedSignature) break;
-
-            const result = await fetchTransaction(signature);
-
-            if (result && isTargetedTransaction(result.transaction)) {
-                console.log(`Transaction ${result.transaction.transaction.signatures[0]} matches the criteria`);
-                console.log(`Token Address: ${result.tokenAddress}`);
-                console.log(`Liquidity Pair Address: ${result.liquidityPairAddress}`);
-
-                newTransactions.push(result);
-            }
-        }
-
-        if (newTransactions.length > 0) {
-            setTargetedTransactions([...newTransactions, ...targetedTransactions]);
-            setLastFetchedSignature(newTransactions[0].transaction.transaction.signatures[0]);
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        pollTransactions();
-        const intervalId = setInterval(pollTransactions, POLLING_INTERVAL_MS);
-        return () => clearInterval(intervalId);
-    }, [lastFetchedSignature, pollTransactions]); // Added pollTransactions to the dependency array
 
     return (
         <div className="App">
