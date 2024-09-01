@@ -65,10 +65,7 @@ function App() {
                 const tokenAddress = transaction.transaction.message.accountKeys[19];
                 const liquidityPairAddress = transaction.transaction.message.accountKeys[2];
 
-                // Fetch token metadata
-                const tokenMetadata = await fetchTokenMetadata(tokenAddress);
-
-                return { transaction, tokenAddress, liquidityPairAddress, tokenMetadata };
+                return { transaction, tokenAddress, liquidityPairAddress };
             } else {
                 return null;
             }
@@ -81,56 +78,6 @@ function App() {
                 console.error('Error fetching the transaction:', error);
                 return null;
             }
-        }
-    };
-
-    const parseMetadata = (decodedData) => {
-        try {
-            // Assuming the decoded data is JSON encoded
-            const jsonString = decodedData.toString('utf-8');
-            const metadata = JSON.parse(jsonString);
-
-            return {
-                name: metadata.name || 'Unknown',
-                symbol: metadata.symbol || 'Unknown',
-                uri: metadata.uri || 'Unknown',
-            };
-        } catch (error) {
-            console.error('Error parsing metadata:', error);
-            return {
-                name: 'Unknown',
-                symbol: 'Unknown',
-                uri: 'Unknown',
-            };
-        }
-    };
-
-    const fetchTokenMetadata = async (tokenAddress) => {
-        try {
-            // Fetch account info to retrieve the metadata
-            const accountInfoResponse = await axios.post(ALCHEMY_API_URL, {
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getAccountInfo',
-                params: [
-                    tokenAddress,
-                    { encoding: 'base64' }
-                ]
-            });
-
-            const accountDataBase64 = accountInfoResponse.data.result?.value?.data[0];
-            if (!accountDataBase64) {
-                return { name: 'Unknown', symbol: 'Unknown', uri: 'Unknown' };
-            }
-
-            // Decode the base64 data
-            const decodedData = Buffer.from(accountDataBase64, 'base64');
-
-            // Parse the metadata
-            return parseMetadata(decodedData);
-        } catch (error) {
-            console.error('Error fetching token metadata:', error);
-            return { name: 'Unknown', symbol: 'Unknown', uri: 'Unknown' };
         }
     };
 
@@ -166,7 +113,6 @@ function App() {
                 console.log(`Transaction ${result.transaction.transaction.signatures[0]} matches the criteria`);
                 console.log(`Token Address: ${result.tokenAddress}`);
                 console.log(`Liquidity Pair Address: ${result.liquidityPairAddress}`);
-                console.log(`Token Metadata: ${JSON.stringify(result.tokenMetadata)}`);
 
                 newTransactions.push(result);
             }
@@ -202,9 +148,6 @@ function App() {
                                     <strong>Transaction ID:</strong> {result.transaction.transaction.signatures[0]}<br />
                                     <strong>Token Address:</strong> <a href={`https://pump.fun/${result.tokenAddress}`} target="_blank" rel="noopener noreferrer">{result.tokenAddress}</a><br />
                                     <strong>Liquidity Pair Address:</strong> <a href={`https://dexscreener.com/solana/${result.liquidityPairAddress}`} target="_blank" rel="noopener noreferrer">{result.liquidityPairAddress}</a><br />
-                                    <strong>Token Name:</strong> {result.tokenMetadata.name}<br />
-                                    <strong>Token Symbol:</strong> {result.tokenMetadata.symbol}<br />
-                                    <strong>Token Metadata URI:</strong> <a href={result.tokenMetadata.uri} target="_blank" rel="noopener noreferrer">{result.tokenMetadata.uri}</a><br />
                                 </div>
                             ))
                         ) : (
@@ -218,4 +161,3 @@ function App() {
 }
 
 export default App;
-
