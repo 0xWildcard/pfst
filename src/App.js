@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 
 const ALCHEMY_API_URL = 'https://solana-mainnet.g.alchemy.com/v2/SjJUD_yrq-FwoP17v2YFizkf2Yryoygu';
@@ -18,7 +18,7 @@ function App() {
         '3ipZWcvdfi4ZMA2h6UPodC5qTfD9CpLKxRF23SBNGvo9LygWEGQyStb2TpFf'
     ];
 
-    const fetchSignatures = async () => {
+    const fetchSignatures = useCallback(async () => {
         try {
             const response = await axios.post(ALCHEMY_API_URL, {
                 jsonrpc: '2.0',
@@ -40,9 +40,9 @@ function App() {
             console.error('Error fetching signatures:', error);
             return [];
         }
-    };
+    }, []);
 
-    const fetchTransaction = async (transactionId, retryCount = 0) => {
+    const fetchTransaction = useCallback(async (transactionId, retryCount = 0) => {
         try {
             const response = await axios.post(ALCHEMY_API_URL, {
                 jsonrpc: '2.0',
@@ -79,7 +79,23 @@ function App() {
                 return null;
             }
         }
-    };
+    }, []);
+
+    const isTargetedTransaction = useCallback((transaction) => {
+        if (!transaction || !transaction.transaction || !transaction.transaction.message) return false;
+
+        const instructions = transaction.transaction.message.instructions;
+
+        const matchesTargetData = instructions.some(instruction => 
+            TARGET_DATA_BASE64.some(target => instruction.data.startsWith(target))
+        );
+
+        const matchingAccountStructure = transaction.meta && transaction.meta.postBalances && transaction.meta.postBalances.length === 23;
+
+        const significantBalanceChange = transaction.meta && transaction.meta.postBalances && transaction.meta.postBalances[0] > 1600000000000;
+
+        return matchesTargetData && matchingAccountStructure && significantBalanceChange;
+    }, [TARGET_DATA_BASE64]);
 
     useEffect(() => {
         const pollTransactions = async () => {
@@ -104,7 +120,7 @@ function App() {
             }
 
             if (newTransactions.length > 0) {
-                setTargetedTransactions([...newTransactions, ...targetedTransactions]);
+                setTargetedTransactions(t => [...newTransactions, ...t]);
                 setLastFetchedSignature(newTransactions[0].transaction.transaction.signatures[0]);
                 setLoading(false);
             }
@@ -113,23 +129,7 @@ function App() {
         pollTransactions();
         const intervalId = setInterval(pollTransactions, POLLING_INTERVAL_MS);
         return () => clearInterval(intervalId);
-    }, [lastFetchedSignature]);
-
-    const isTargetedTransaction = (transaction) => {
-        if (!transaction || !transaction.transaction || !transaction.transaction.message) return false;
-
-        const instructions = transaction.transaction.message.instructions;
-
-        const matchesTargetData = instructions.some(instruction => 
-            TARGET_DATA_BASE64.some(target => instruction.data.startsWith(target))
-        );
-
-        const matchingAccountStructure = transaction.meta && transaction.meta.postBalances && transaction.meta.postBalances.length === 23;
-
-        const significantBalanceChange = transaction.meta && transaction.meta.postBalances && transaction.meta.postBalances[0] > 1600000000000;
-
-        return matchesTargetData && matchingAccountStructure && significantBalanceChange;
-    };
+    }, [lastFetchedSignature, fetchSignatures, fetchTransaction, isTargetedTransaction]);
 
     return (
         <div className="App">
