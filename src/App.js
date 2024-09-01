@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 const ALCHEMY_API_URL = 'https://solana-mainnet.g.alchemy.com/v2/SjJUD_yrq-FwoP17v2YFizkf2Yryoygu';
@@ -13,10 +13,10 @@ function App() {
     const SIGNATURE_FETCH_LIMIT = 50; // Fetch 50 signatures at a time
     const POLLING_INTERVAL_MS = 30000; // Poll every 30 seconds
 
-    const TARGET_DATA_BASE64 = [
+    const TARGET_DATA_BASE64 = useMemo(() => [
         '3mimF1vf45io',
         '3ipZWcvdfi4ZMA2h6UPodC5qTfD9CpLKxRF23SBNGvo9LygWEGQyStb2TpFf'
-    ];
+    ], []);
 
     const fetchSignatures = useCallback(async () => {
         try {
