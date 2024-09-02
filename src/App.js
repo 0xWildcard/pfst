@@ -13,7 +13,9 @@ function App() {
     const processedTransactionIds = useMemo(() => new Set(), []); // Track processed transaction IDs
 
     const MINTER_ADDRESS = '39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg';
+    const INITIAL_SIGNATURE_FETCH_LIMIT = 30;
     const STANDARD_SIGNATURE_FETCH_LIMIT = 5;
+    const INITIAL_POLLING_INTERVAL_MS = 30000;
     const STANDARD_POLLING_INTERVAL_MS = 3000;
 
     const TARGET_DATA_BASE64 = useMemo(() => [
@@ -170,7 +172,7 @@ function App() {
 
     useEffect(() => {
         const fetchInitialTransactions = async () => {
-            await pollTransactions(STANDARD_SIGNATURE_FETCH_LIMIT);
+            await pollTransactions(INITIAL_SIGNATURE_FETCH_LIMIT);
 
             const intervalId = setInterval(() => {
                 pollTransactions(STANDARD_SIGNATURE_FETCH_LIMIT);
