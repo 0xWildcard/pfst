@@ -3,7 +3,7 @@ import axios from 'axios';
 import './App.css';  // Import your CSS file
 
 const ALCHEMY_API_URL = 'https://solana-mainnet.g.alchemy.com/v2/SjJUD_yrq-FwoP17v2YFizkf2Yryoygu';
-const GECKO_TERMINAL_API_URL = 'https://api.geckoterminal.com/api/v2';
+const EXTRNODE_API_URL = 'https://solana-mainnet.rpc.extrnode.com/c30b36be-ed29-4cc3-946b-21a7a785398e';
 
 function App() {
     const [loading, setLoading] = useState(true);
@@ -11,6 +11,7 @@ function App() {
     const [statusMessage, setStatusMessage] = useState('');
     const [lastFetchedSignature, setLastFetchedSignature] = useState(null);
     const processedTransactionIds = useMemo(() => new Set(), []); // Track processed transaction IDs
+    const seenTokenAddresses = useMemo(() => new Set(), []); // Track processed token addresses
 
     const MINTER_ADDRESS = '39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg';
     const INITIAL_SIGNATURE_FETCH_LIMIT = 30;
@@ -46,18 +47,19 @@ function App() {
         }
     }, []);
 
-    const fetchGeckoTerminalMetadata = useCallback(async (mintAddress) => {
+    const fetchTokenMetadata = useCallback(async (mintAddress) => {
         try {
-            const response = await axios.get(`${GECKO_TERMINAL_API_URL}/networks/solana/tokens/${mintAddress}`);
-            if (response.data && response.data.data) {
-                const { attributes } = response.data.data;
-                return {
-                    name: attributes.name,
-                    symbol: attributes.symbol,
-                    logoURI: attributes.logo
-                };
+            const response = await axios.post(EXTRNODE_API_URL, {
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'getAsset',
+                params: [mintAddress]
+            });
+
+            if (response.data && response.data.result) {
+                return response.data.result;
             } else {
-                console.warn(`Metadata not found for token: ${mintAddress}`);
+                console.warn(`No metadata found for token address: ${mintAddress}`);
                 return null;
             }
         } catch (error) {
@@ -88,9 +90,16 @@ function App() {
                 const tokenAddress = transaction.transaction.message.accountKeys[19];
                 const liquidityPairAddress = transaction.transaction.message.accountKeys[2];
 
+                if (seenTokenAddresses.has(tokenAddress)) {
+                    return null; // Skip duplicate tokens
+                }
+
                 let metadata = null;
                 if (tokenAddress) {
-                    metadata = await fetchGeckoTerminalMetadata(tokenAddress);
+                    metadata = await fetchTokenMetadata(tokenAddress);
+                    if (metadata) {
+                        seenTokenAddresses.add(tokenAddress);
+                    }
                 } else {
                     console.warn(`Token address is undefined for transaction: ${transactionId}`);
                 }
@@ -109,7 +118,7 @@ function App() {
                 return null;
             }
         }
-    }, [fetchGeckoTerminalMetadata]);
+    }, [fetchTokenMetadata, seenTokenAddresses]);
 
     const isTargetedTransaction = useCallback((transaction) => {
         if (!transaction || !transaction.transaction || !transaction.transaction.message) return false;
@@ -186,24 +195,40 @@ function App() {
     return (
         <div className="App">
             <header className="App-header">
-                <h1>Testing Recent Transactions</h1>
+                <h1>Latest Pump.Fun Raydium Launches</h1>
                 <p>{statusMessage}</p>
                 {loading ? (
                     <p>Loading...</p>
                 ) : (
                     <div>
-                        <h2>Targeted Transactions Found:</h2>
                         {targetedTransactions.length > 0 ? (
                             targetedTransactions.map((result, index) => (
                                 <div key={index} className="transaction-item new">
-                                    <strong>Block Time:</strong> {result.transaction.blockTime ? new Date(result.transaction.blockTime * 1000).toLocaleString() : 'N/A'}<br />
-                                    <strong>Token Name:</strong> {result.metadata.name}<br />
-                                    <strong>Token Symbol:</strong> {result.metadata.symbol}<br />
-                                    <strong>Token Address:</strong> <a href={`https://pump.fun/${result.tokenAddress}`} target="_blank" rel="noopener noreferrer">{result.tokenAddress}</a><br />
-                                    <strong>Liquidity Pair Address:</strong> <a href={`https://dexscreener.com/solana/${result.liquidityPairAddress}`} target="_blank" rel="noopener noreferrer">{result.liquidityPairAddress}</a><br />
-                                    <strong>GeckoTerminal Pool:</strong> <a href={`https://www.geckoterminal.com/solana/pools/${result.liquidityPairAddress}`} target="_blank" rel="noopener noreferrer">{result.liquidityPairAddress}</a><br />
-                                    <strong>Transaction ID:</strong> <a href={`https://solscan.io/tx/${result.transaction.transaction.signatures[0]}`} target="_blank" rel="noopener noreferrer">{result.transaction.transaction.signatures[0]}</a><br />
-                                    {result.metadata.logoURI && <img src={result.metadata.logoURI} alt={result.metadata.name} style={{ width: '50px' }} />}
+                                    {result.metadata?.content?.links?.image && (
+                                        <img
+                                            src={result.metadata.content.links.image}
+                                            alt={result.metadata.content.metadata?.name || "Token Image"}
+                                            className="transaction-image"
+                                        />
+                                    )}
+                                    <h2 className="transaction-name">{result.metadata?.content?.metadata?.name || "Unknown Token"}</h2>
+                                    <p className="transaction-time">Launch Time: {result.transaction.blockTime ? new Date(result.transaction.blockTime * 1000).toLocaleString() : 'N/A'}</p>
+                                    <p className="transaction-symbol">Symbol: {result.metadata?.content?.metadata?.symbol || "N/A"}</p>
+                                    <p className="transaction-token-address">{result.tokenAddress}</p>
+                                    <div className="button-group transaction-buttons">
+                                        <button className="link-button" onClick={() => window.open(`https://pump.fun/${result.tokenAddress}`, '_blank')}>
+                                            Pump Fun
+                                        </button>
+                                        <button className="link-button" onClick={() => window.open(`https://dexscreener.com/solana/${result.liquidityPairAddress}`, '_blank')}>
+                                            Dex<br />Screener
+                                        </button>
+                                        <button className="link-button" onClick={() => window.open(`https://www.geckoterminal.com/solana/pools/${result.liquidityPairAddress}`, '_blank')}>
+                                            Gecko<br />Terminal
+                                        </button>
+                                        <button className="link-button" onClick={() => window.open(`https://solscan.io/tx/${result.transaction.transaction.signatures[0]}`, '_blank')}>
+                                            Solscan
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         ) : (
@@ -217,3 +242,5 @@ function App() {
 }
 
 export default App;
+
+
